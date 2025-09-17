@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Login - CivicConnect</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .tabs { display: flex; border-bottom: 2px solid #ddd; margin-bottom: 1.5rem; }
+        .tab-link { padding: 1rem 1.5rem; cursor: pointer; border: none; background: none; font-size: 1.1rem; font-weight: 600; color: #888; }
+        .tab-link.active { color: var(--primary-color); border-bottom: 2px solid var(--primary-color); }
+    </style>
+</head>
+<body>
+    <nav class="navbar"><div class="container nav-container"><a href="/" class="logo">CivicConnect</a><ul class="nav-links"><li><a href="/">Home</a></li></ul></div></nav>
+    <div class="form-container">
+        <div class="tabs">
+            <button class="tab-link active" onclick="openTab(event, 'User')">Citizen Login</button>
+            <button class="tab-link" onclick="openTab(event, 'Admin')">Admin Login</button>
+        </div>
+        
+        <div id="User" class="tab-content active">
+            <h1>Citizen Login</h1>
+            <form id="userLoginForm">
+                <input type="hidden" name="user_type" value="user">
+                <label for="user_email">Email:</label>
+                <input type="email" id="user_email" name="email" required>
+                <label for="user_password">Password:</label>
+                <input type="password" id="user_password" name="password" required>
+                <button type="submit">Login</button>
+            </form>
+        </div>
+
+        <div id="Admin" class="tab-content">
+            <h1>Admin Login</h1>
+            <form id="adminLoginForm">
+                <input type="hidden" name="user_type" value="admin">
+                <label for="admin_email">Email:</label>
+                <input type="email" id="admin_email" name="email" required value="admin@gov.in">
+                <label for="admin_password">Password:</label>
+                <input type="password" id="admin_password" name="password" required>
+                <button type="submit">Login</button>
+            </form>
+        </div>
+
+        <p style="text-align: center; margin-top: 1rem;">Don't have an account? <a href="/register">Register here</a>.</p>
+        <p id="error-msg" class="error"></p>
+    </div>
+
+    <script>
+        function openTab(evt, tabName) {
+            document.querySelectorAll('.tab-content').forEach(tc => tc.style.display = "none");
+            document.querySelectorAll('.tab-link').forEach(tl => tl.classList.remove('active'));
+            document.getElementById(tabName).style.display = "block";
+            evt.currentTarget.classList.add('active');
+        }
+
+        async function handleLogin(event, formId) {
+            event.preventDefault();
+            const form = document.getElementById(formId);
+            const formData = new FormData(form);
+
+            const response = await fetch('/token', {
+                method: 'POST',
+                body: new URLSearchParams(formData)
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                localStorage.setItem('accessToken', data.access_token);
+                localStorage.setItem('userRole', data.user_role);
+                window.location.href = data.user_role === 'admin' ? '/admin' : '/dashboard';
+            } else {
+                const errorData = await response.json();
+                document.getElementById('error-msg').innerText = `Login failed: ${errorData.detail}`;
+            }
+        }
+        document.getElementById('userLoginForm').addEventListener('submit', (e) => handleLogin(e, 'userLoginForm'));
+        document.getElementById('adminLoginForm').addEventListener('submit', (e) => handleLogin(e, 'adminLoginForm'));
+    </script>
+</body>
+</html>

@@ -1,0 +1,267 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
+
+:root {
+    --primary-color: #007bff;
+    --primary-color-hover: #0056b3;
+    --secondary-color: #f4f4f9;
+    --dark-color: #333;
+    --light-color: #fff;
+    --text-color: #555;
+    --container-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: var(--secondary-color);
+    color: var(--text-color);
+    line-height: 1.6;
+    margin: 0;
+}
+
+.container {
+    max-width: 1100px;
+    margin: auto;
+    padding: 0 2rem;
+}
+
+/* Navbar */
+.navbar {
+    background: var(--light-color);
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    padding: 1rem 0;
+    position: sticky;
+    top: 0;
+    z-index: 1000;
+}
+
+.nav-container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.logo {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.nav-links {
+    list-style: none;
+    display: flex;
+    align-items: center;
+    margin: 0;
+    padding: 0;
+}
+
+.nav-links li {
+    margin-left: 1.5rem;
+}
+
+.nav-links a {
+    text-decoration: none;
+    color: var(--dark-color);
+    font-weight: 500;
+}
+
+/* Buttons */
+.btn {
+    display: inline-block;
+    padding: 0.7rem 1.5rem;
+    border-radius: 5px;
+    text-decoration: none;
+    font-weight: 600;
+    transition: background-color 0.3s ease;
+    border: none;
+    background: none;
+    cursor: pointer;
+}
+
+.btn-primary {
+    background-color: var(--primary-color);
+    color: var(--light-color);
+}
+
+.btn-primary:hover {
+    background-color: var(--primary-color-hover);
+}
+
+.btn-large {
+    font-size: 1.1rem;
+    padding: 0.8rem 2rem;
+}
+
+
+/* Hero Section */
+.hero {
+    background: linear-gradient(rgba(0, 0, 0, 0.5), rgba(0, 0, 0, 0.5)), url('https://images.unsplash.com/photo-1593941707882-6e017d23a78d?q=80&w=2070&auto=format&fit=crop') no-repeat center center/cover;
+    color: var(--light-color);
+    text-align: center;
+    padding: 6rem 0;
+}
+
+.hero h1 {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+.hero p {
+    font-size: 1.2rem;
+    margin-bottom: 2rem;
+}
+
+/* About / Features Section */
+.about-section {
+    padding: 4rem 0;
+    text-align: center;
+}
+
+.about-section h2 {
+    font-size: 2.5rem;
+    margin-bottom: 3rem;
+    color: var(--dark-color);
+}
+
+.features {
+    display: flex;
+    justify-content: space-around;
+    gap: 2rem;
+}
+
+.feature-box {
+    background: var(--light-color);
+    padding: 2rem;
+    border-radius: 8px;
+    box-shadow: var(--container-shadow);
+    flex: 1;
+}
+
+.feature-box i {
+    font-size: 3rem;
+    color: var(--primary-color);
+    margin-bottom: 1rem;
+}
+
+.feature-box h3 {
+    font-size: 1.5rem;
+    color: var(--dark-color);
+    margin-bottom: 0.5rem;
+}
+
+/* Footer */
+.footer {
+    background: var(--dark-color);
+    color: var(--light-color);
+    text-align: center;
+    padding: 2rem 0;
+}
+
+.social-icons a {
+    color: var(--light-color);
+    font-size: 1.5rem;
+    margin: 0 0.7rem;
+    transition: color 0.3s ease;
+}
+
+.social-icons a:hover {
+    color: var(--primary-color);
+}
+
+/* Form Styling */
+.form-container {
+    max-width: 500px;
+    margin: 4rem auto;
+    padding: 2.5rem;
+    background: var(--light-color);
+    border-radius: 8px;
+    box-shadow: var(--container-shadow);
+}
+
+.form-container h1 {
+    text-align: center;
+    color: var(--dark-color);
+    margin-bottom: 2rem;
+}
+
+label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+}
+
+input, select, button, textarea {
+    width: 100%;
+    padding: 0.8rem;
+    margin-bottom: 1rem;
+    border-radius: 5px;
+    border: 1px solid #ddd;
+    box-sizing: border-box;
+    font-size: 1rem;
+    font-family: 'Poppins', sans-serif;
+}
+
+button[type="submit"] {
+    width: 100%;
+    padding: 0.8rem;
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+button[type="submit"]:hover {
+    background-color: var(--primary-color-hover);
+}
+
+.error {
+    color: #d9534f;
+    font-weight: bold;
+    text-align: center;
+    margin-top: 1rem;
+}
+
+/* Dashboard & Report Cards */
+.dashboard-container {
+    max-width: 900px;
+    margin: 2rem auto;
+    padding: 2rem;
+}
+
+.dashboard-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 2rem;
+}
+
+.report-card {
+    background: var(--light-color);
+    border: 1px solid #e0e0e0;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+.report-card h3 {
+    margin-top: 0;
+    color: var(--dark-color);
+}
+
+.report-card img {
+    max-width: 100%;
+    height: auto;
+    border-radius: 4px;
+    margin-top: 1rem;
+}
+
+.report-card p {
+    margin: 0.5rem 0 0 0;
+}
+
+.report-card p strong {
+    color: var(--dark-color);
+}
