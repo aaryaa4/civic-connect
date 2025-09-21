@@ -1,4 +1,6 @@
 import shutil
+import os
+from pathlib import Path
 from typing import List, Optional
 from datetime import datetime, timedelta, timezone
 
@@ -17,16 +19,38 @@ from database import SessionLocal, engine, get_db
 # --- INITIAL SETUP ---
 models.Base.metadata.create_all(bind=engine)
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="static"), name="static")
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
-templates = Jinja2Templates(directory="templates")
+
+# Get the directory of the current file to build absolute paths
+# THIS IS THE FIX FOR THE DEPLOYMENT ERROR
+current_dir = Path(__file__).parent
+app.mount("/static", StaticFiles(directory=current_dir / "static"), name="static")
+app.mount("/uploads", StaticFiles(directory=current_dir / "uploads"), name="uploads")
+templates = Jinja2Templates(directory=current_dir / "templates")
+
+# --- SECURITY & AUTHENTICATION ---
+# Load secrets from environment variables for better security
+SECRET_KEY = os.getenv("SECRET_KEY", "a_default_secret_key_for_local_dev")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# --- UTILITY FUNCTIONS ---
+def verify_password(plain_password, hashed_password): return pwd_context.verify(plain_password, hashed_password)
+def get_password_hash(password): return pwd_context.hash(password)
+def create_access_token(data: dict):
+    to_encode = data.copy()
+    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 # --- SECURE ADMIN CREATION ON STARTUP ---
 @app.on_event("startup")
 def create_super_user():
     db = SessionLocal()
-    ADMIN_EMAIL = "admin@gov.in"
-    ADMIN_PASSWORD = "AdminPassword123!"
+    # Load admin credentials from environment variables
+    ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@example.com")
+    ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "DefaultAdminPass123!")
+    
     admin = get_user_by_email(db, email=ADMIN_EMAIL)
     if not admin:
         default_community = db.query(models.Community).filter(models.Community.id == 1).first()
@@ -35,6 +59,7 @@ def create_super_user():
             db.add(db_community)
             db.commit()
             db.refresh(db_community)
+        
         admin_user = models.User(
             email=ADMIN_EMAIL,
             hashed_password=get_password_hash(ADMIN_PASSWORD),
@@ -45,22 +70,8 @@ def create_super_user():
         )
         db.add(admin_user)
         db.commit()
-        print("Admin user created successfully.")
+        print(f"Admin user '{ADMIN_EMAIL}' created successfully.")
     db.close()
-
-# --- SECURITY & AUTHENTICATION ---
-SECRET_KEY = "your_super_secret_key"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-def verify_password(plain_password, hashed_password): return pwd_context.verify(plain_password, hashed_password)
-def get_password_hash(password): return pwd_context.hash(password)
-def create_access_token(data: dict):
-    to_encode = data.copy()
-    expire = datetime.now(timezone.utc) + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 # --- PYDANTIC SCHEMAS ---
 class UserCreate(BaseModel): email: EmailStr; full_name: str; password: str; community_id: int = 1
@@ -82,6 +93,24 @@ def create_user(db: Session, user: UserCreate):
     db.refresh(db_user)
     return db_user
 
+# --- AUTHENTICATION DEPENDENCY ---
+# This is a cleaner way to handle user authentication in your API endpoints
+def get_current_user(token: str, db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, 
+        detail="Could not validate credentials"
+    )
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        email: str = payload.get("sub")
+        if email is None: raise credentials_exception
+    except JWTError: 
+        raise credentials_exception
+    
+    user = get_user_by_email(db, email=email)
+    if user is None: raise credentials_exception
+    return user
+
 # --- HTML PAGE ENDPOINTS ---
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request): return templates.TemplateResponse("index.html", {"request": request})
@@ -102,38 +131,48 @@ async def login_for_access_token(db: Session = Depends(get_db), email: str = For
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect email or password")
     if user_type == "admin" and user.role != models.UserRole.admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied. Not an admin.")
+    
     access_token = create_access_token(data={"sub": user.email, "role": user.role.value})
     return {"access_token": access_token, "token_type": "bearer", "user_role": user.role.value}
 
 @app.post("/register")
 async def register_user(request: Request, email: str = Form(), full_name: str = Form(), password: str = Form(), db: Session = Depends(get_db)):
-    if email == "admin@gov.in":
+    ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "admin@example.com")
+    if email.lower() == ADMIN_EMAIL.lower():
         return templates.TemplateResponse("register.html", {"request": request, "error": "This email is reserved."})
+    
     db_user = get_user_by_email(db, email=email)
     if db_user:
         return templates.TemplateResponse("register.html", {"request": request, "error": "Email already registered"})
+    
     user_data = UserCreate(email=email, full_name=full_name, password=password)
     create_user(db=db, user=user_data)
     return RedirectResponse(url="/login", status_code=status.HTTP_303_SEE_OTHER)
 
-def get_current_user_from_token(token: str, db: Session):
-    credentials_exception = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Could not validate credentials")
-    try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
-        email: str = payload.get("sub")
-        if email is None: raise credentials_exception
-    except JWTError: raise credentials_exception
-    user = get_user_by_email(db, email=email)
-    if user is None: raise credentials_exception
-    return user
-
 @app.post("/api/reports")
-async def create_report(token: str = Form(), caption: str = Form(), latitude: float = Form(), longitude: float = Form(), category: str = Form(), is_emergency: bool = Form(False), file: UploadFile = File(...), db: Session = Depends(get_db)):
-    current_user = get_current_user_from_token(token, db)
+async def create_report(
+    token: str = Form(), 
+    caption: str = Form(), 
+    latitude: float = Form(), 
+    longitude: float = Form(), 
+    category: str = Form(), 
+    is_emergency: bool = Form(False), 
+    file: UploadFile = File(...), 
+    db: Session = Depends(get_db)
+):
+    current_user = get_current_user(token, db)
     safe_filename = f"{int(datetime.now().timestamp())}_{file.filename.replace('..', '')}"
     file_location = f"uploads/{safe_filename}"
-    with open(file_location, "wb+") as file_object: shutil.copyfileobj(file.file, file_object)
-    db_report = models.Report(caption=caption, latitude=latitude, longitude=longitude, category=category, is_emergency=is_emergency, image_url=file_location, owner_id=current_user.id, community_id=current_user.community_id)
+    
+    with open(current_dir / file_location, "wb+") as file_object:
+        shutil.copyfileobj(file.file, file_object)
+        
+    db_report = models.Report(
+        caption=caption, latitude=latitude, longitude=longitude, 
+        category=category, is_emergency=is_emergency, 
+        image_url=file_location, owner_id=current_user.id, 
+        community_id=current_user.community_id
+    )
     db.add(db_report)
     db.commit()
     db.refresh(db_report)
@@ -141,7 +180,7 @@ async def create_report(token: str = Form(), caption: str = Form(), latitude: fl
 
 @app.get("/api/reports", response_model=List[Report])
 async def get_reports(token: str, db: Session = Depends(get_db)):
-    user = get_current_user_from_token(token, db)
+    user = get_current_user(token, db)
     if user.role == models.UserRole.admin:
         return db.query(models.Report).order_by(models.Report.timestamp.desc()).all()
     else:
@@ -149,19 +188,21 @@ async def get_reports(token: str, db: Session = Depends(get_db)):
 
 @app.post("/api/reports/{report_id}/status")
 async def update_report_status(report_id: int, new_status: models.ReportStatus = Form(...), token: str = Form(...), db: Session = Depends(get_db)):
-    user = get_current_user_from_token(token, db)
+    user = get_current_user(token, db)
     if user.role != models.UserRole.admin:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Only admins can update status.")
+    
     db_report = db.query(models.Report).filter(models.Report.id == report_id).first()
     if not db_report:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found.")
+    
     db_report.status = new_status
     db.commit()
     return {"message": "Status updated successfully", "new_status": new_status.value}
 
 @app.post("/api/reports/{report_id}/feedback")
 async def submit_feedback(report_id: int, rating: int = Form(...), comment: str = Form(None), token: str = Form(...), db: Session = Depends(get_db)):
-    user = get_current_user_from_token(token, db)
+    user = get_current_user(token, db)
     db_report = db.query(models.Report).filter(models.Report.id == report_id).first()
 
     if not db_report or db_report.owner_id != user.id:
