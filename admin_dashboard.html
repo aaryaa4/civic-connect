@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .actions { margin-top: 1rem; }
+        .actions button { width: auto; margin-right: 0.5rem; padding: 0.5rem 1rem; font-size: 0.9rem; }
+        .status { padding: 0.3rem 0.8rem; border-radius: 15px; color: white; font-weight: 600; }
+        .status-pending { background-color: #ffc107; }
+        .status-resolved { background-color: #28a745; }
+    </style>
+</head>
+<body>
+    <nav class="navbar"><div class="container nav-container"><a href="/" class="logo">CivicConnect</a><ul class="nav-links"><li><a href="/">Home</a></li><li><button onclick="logout()" class="btn btn-primary">Logout</button></li></ul></div></nav>
+    <div class="dashboard-container">
+        <div class="dashboard-header"><h1>Admin Dashboard - All Reports</h1></div>
+        <div id="reports-container"></div>
+    </div>
+
+    <script>
+        const token = localStorage.getItem('accessToken');
+        if (!token || localStorage.getItem('userRole') !== 'admin') { window.location.href = '/login'; }
+
+        function formatStatusText(status) {
+            return status.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase());
+        }
+
+        async function fetchAllReports() {
+            const response = await fetch(`/api/reports?token=${token}`);
+            const reports = await response.json();
+            const container = document.getElementById('reports-container');
+            container.innerHTML = '';
+            reports.forEach(report => {
+                const statusClass = `status-${report.status}`;
+                const statusText = formatStatusText(report.status);
+                const reportDiv = document.createElement('div');
+                reportDiv.className = 'report-card';
+                reportDiv.innerHTML = `
+                    <h3>${report.caption}</h3>
+                    <img src="/${report.image_url}" width="200" />
+                    <p><strong>Status:</strong> <span class="status ${statusClass}">${statusText}</span></p>
+                    <p><strong>Location:</strong> ${report.latitude.toFixed(4)}, ${report.longitude.toFixed(4)}</p>
+                    <div class="actions">
+                        <button onclick="updateStatus(${report.id}, 'resolved')">Mark Resolved</button>
+                    </div>
+                `;
+                container.appendChild(reportDiv);
+            });
+        }
+
+        async function updateStatus(reportId, newStatus) {
+            try {
+                const formData = new FormData();
+                formData.append('new_status', newStatus);
+                formData.append('token', token);
+                const response = await fetch(`/api/reports/${reportId}/status`, {
+                    method: 'POST',
+                    body: formData
+                });
+                if (!response.ok) { throw new Error('Failed to update status'); }
+                await fetchAllReports();
+            } catch (error) {
+                alert("Could not update the status. Please try again.");
+            }
+        }
+
+        function logout() { localStorage.removeItem('accessToken'); localStorage.removeItem('userRole'); window.location.href = '/login'; }
+        fetchAllReports();
+    </script>
+</body>
+</html>
